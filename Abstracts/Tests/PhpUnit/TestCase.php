@@ -9,10 +9,10 @@ use Apiato\Core\Traits\TestsTraits\PhpUnit\TestsMockHelperTrait;
 use Apiato\Core\Traits\TestsTraits\PhpUnit\TestsRequestHelperTrait;
 use Apiato\Core\Traits\TestsTraits\PhpUnit\TestsResponseHelperTrait;
 use Apiato\Core\Traits\TestsTraits\PhpUnit\TestsUploadHelperTrait;
-use Illuminate\Foundation\Testing\TestCase as LaravelTestCase;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
-use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Foundation\Testing\TestCase as LaravelTestCase;
 
 /**
  * Class TestCase
@@ -53,9 +53,7 @@ abstract class TestCase extends LaravelTestCase
      */
     public function tearDown()
     {
-        $this->usingInMemoryDatabase()
-            ? $this->artisan('migrate:reset')
-            : parent::tearDown();
+        parent::tearDown();
     }
 
     /**

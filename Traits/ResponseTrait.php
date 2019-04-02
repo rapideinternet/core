@@ -2,6 +2,8 @@
 
 namespace Apiato\Core\Traits;
 
+use Apiato\Core\Abstracts\Transformers\Transformer;
+use Apiato\Core\Exceptions\InvalidTransformerException;
 use Fractal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\AbstractPaginator;
@@ -24,10 +26,10 @@ trait ResponseTrait
 
     /**
      * @param       $data
-     * @param null  $transformerName
-     * @param array $includes
-     * @param array $meta
-     * @param null  $resourceKey
+     * @param null  $transformerName The transformer (e.g., Transformer::class or new Transformer()) to be applied
+     * @param array $includes additional resources to be included
+     * @param array $meta additional meta information to be applied
+     * @param null  $resourceKey the resource key to be set for the TOP LEVEL resource
      *
      * @return array
      */
@@ -38,14 +40,20 @@ trait ResponseTrait
         array $meta = [],
         $resourceKey = null
     ) {
-        // create instance of the transformer
-        $transformer = new $transformerName;
+        // first, we need to create the transformer
+        if ($transformerName instanceof Transformer) {
+            // check, if we have provided a respective TRANSFORMER class
+            $transformer = $transformerName;
+        }
+        else {
+            // of if we just passed the classname
+            $transformer = new $transformerName;
+        }
 
-        // append the includes from the transform() to the defaultIncludes
-        $includes = array_unique(array_merge($transformer->getDefaultIncludes(), $includes));
-
-        // set the relationships to be included
-        $transformer->setDefaultIncludes($includes);
+        // now, finally check, if the class is really a TRANSFORMER
+        if (! ($transformer instanceof Transformer)) {
+            throw new InvalidTransformerException();
+        }
 
         // add specific meta information to the response message
         $this->metaData = [
@@ -72,10 +80,15 @@ trait ResponseTrait
         }
 
         $fractal = Fractal::create($data, $transformer)->withResourceName($resourceKey)->addMeta($this->metaData);
-        // check if the user wants to include additional relationships
-        if ($requestIncludes = Request::get('include')) {
-            $fractal->parseIncludes($requestIncludes);
-        }
+
+        // read includes passed via query params in url
+        $requestIncludes = $this->parseRequestedIncludes();
+
+        // merge the requested includes with the one added by the transform() method itself
+        $requestIncludes = array_unique(array_merge($includes, $requestIncludes));
+
+        // and let fractal include everything
+        $fractal->parseIncludes($requestIncludes);
 
         // apply request filters if available in the request
         if ($requestFilters = Request::get('filter')) {
@@ -203,6 +216,14 @@ trait ResponseTrait
         }
 
         return $responseArray;
+    }
+    
+    /**
+     * @return array
+     */
+    protected function parseRequestedIncludes() : array
+    {
+        return explode(',', Request::get('include'));
     }
 
 }
